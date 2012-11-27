@@ -140,20 +140,16 @@ describe('Processor', function() {
       });
   });
 
-  it('should report all generated filenames in the second callback argument', function(done) {
+  it('should properly take a certain amount of screenshots at defined timemarks', function(done) {
     var testFolder = path.join(__dirname, 'assets', 'tntest_config');
     var args = new Ffmpeg({ source: this.testfile, nolog: true })
       .withSize('150x?')
       .renice(19)
       .takeScreenshots({
         count: 2,
-        timemarks: [ '0.5', '1' ],
-        filename: 'shot_%00i'
-      }, testFolder, function(err, names) {
+        timemarks: [ '0.5', '1' ]
+      }, testFolder, function(err) {
         assert.ok(!err);
-        names.length.should.equal(2);
-        names[0].should.equal('shot_001.jpg');
-        names[1].should.equal('shot_002.jpg');
         fs.readdir(testFolder, function(err, files) {
           var tnCount = 0;
           files.forEach(function(file) {
@@ -163,6 +159,42 @@ describe('Processor', function() {
             }
           });
           tnCount.should.equal(2);
+          // remove folder
+          fs.rmdirSync(testFolder);
+          done();
+        });
+      });
+  });
+
+  it('should report codec data on screenshot', function(done) {
+    var testFolder = path.join(__dirname, 'assets', 'tntest_config');
+    var codecDataSeen = false;
+    var args = new Ffmpeg({ source: this.testfile, nolog: true })
+      .withSize('150x?')
+      .renice(19)
+      .onCodecData(function(data) {
+          codecDataSeen = true;
+          data.should.have.property('audio');
+          data.should.have.property('video');
+        })
+      .takeScreenshots({
+        count: 1,
+        timemarks: [ '0.5'],
+        filename: 'shot_%00i'
+      }, testFolder, function(err, names) {
+        assert.ok(!err);
+        assert(codecDataSeen);
+        names.length.should.equal(1);
+        names[0].should.equal('shot_001.jpg');
+        fs.readdir(testFolder, function(err, files) {
+          var tnCount = 0;
+          files.forEach(function(file) {
+            if (file.indexOf('.jpg') > -1) {
+              tnCount++;
+              fs.unlinkSync(testFolder + '/' + file);
+            }
+          });
+          tnCount.should.equal(1);
           // remove folder
           fs.rmdirSync(testFolder);
           done();
